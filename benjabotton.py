@@ -1,1 +1,2 @@
-prin("hola gg")
+print("hola gg")
+print("12345")
