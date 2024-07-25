@@ -1,2 +1,2 @@
 print("hola gg")
-print("12345")
+print("1234")
