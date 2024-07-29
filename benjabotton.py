@@ -5,13 +5,6 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from io import BytesIO
 
-# Verificar si openpyxl está instalado
-try:
-    import openpyxl
-except ImportError:
-    st.error("Error: La biblioteca 'openpyxl' no está instalada. Instálala usando 'pip install openpyxl'.")
-    st.stop()
-
 def process_data(file_path, sheet_name, col_range, start_row):
     """Procesa los datos del archivo Excel según los parámetros especificados."""
     try:
