@@ -5,21 +5,20 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from io import BytesIO
 
-def process_data(file_path, sheet_name, col_range, start_row):
-    """Procesa los datos del archivo Excel según los parámetros especificados."""
+def process_data(file, file_type, sheet_name=None, col_range=None, start_row=None):
+    """Procesa los datos del archivo Excel o CSV según los parámetros especificados."""
     try:
-        start_row = int(start_row) - 1  # Ajustar para índice basado en 0
-
-        # Verificar las hojas disponibles en el archivo
-        xls = pd.ExcelFile(file_path)
-        sheet_names = xls.sheet_names
-
-        if sheet_name not in sheet_names:
-            st.error(f"Error: La hoja '{sheet_name}' no se encuentra en el archivo.")
-            return None
-
-        # Leer el archivo Excel
-        df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row)
+        if file_type == "xlsx":
+            start_row = int(start_row) - 1 if start_row else 0  # Ajustar para índice basado en 0
+            xls = pd.ExcelFile(file)
+            sheet_names = xls.sheet_names
+            if sheet_name not in sheet_names:
+                st.error(f"Error: La hoja '{sheet_name}' no se encuentra en el archivo.")
+                return None
+            df = pd.read_excel(file, sheet_name=sheet_name, usecols=col_range, skiprows=start_row)
+        elif file_type == "csv":
+            df = pd.read_csv(file)
+        
         return df
 
     except ValueError:
@@ -96,17 +95,22 @@ def generate_bar_chart(df, column, max_data):
 
 def main():
     """Función principal para ejecutar el proceso ETL usando Streamlit."""
-    st.title("Procesador de Datos Excel")
+    st.title("Procesador de Datos Excel y CSV")
 
-    uploaded_file = st.file_uploader("Cargar archivo Excel", type=["xlsx"], key="excel_uploader")
+    uploaded_file = st.file_uploader("Cargar archivo Excel o CSV", type=["xlsx", "csv"], key="file_uploader")
 
     if uploaded_file is not None:
-        sheet_name = st.text_input("Ingrese el nombre de la hoja", key="sheet_name_input")
-        col_range = st.text_input("Ingrese el rango de columnas (ej. A:D)", key="col_range_input")
-        start_row = st.text_input("Ingrese la fila inicial", key="start_row_input")
+        file_type = uploaded_file.name.split('.')[-1].lower()
+        
+        if file_type == "xlsx":
+            sheet_name = st.text_input("Ingrese el nombre de la hoja", key="sheet_name_input")
+            col_range = st.text_input("Ingrese el rango de columnas (ej. A:D)", key="col_range_input")
+            start_row = st.text_input("Ingrese la fila inicial", key="start_row_input")
+        else:
+            sheet_name = col_range = start_row = None
 
         if st.button("Procesar Datos", key="process_data_button"):
-            df = process_data(uploaded_file, sheet_name, col_range, start_row)
+            df = process_data(uploaded_file, file_type, sheet_name, col_range, start_row)
             if df is not None:
                 st.write("Dataset Final:")
                 st.dataframe(df)
