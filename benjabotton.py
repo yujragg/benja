@@ -53,7 +53,7 @@ if archivo_excel:
             data_persona = data[data['Name'] == nombre_seleccionado]
 
             if not data_persona.empty:
-                # Realizar la regresión lineal (en este caso, no tiene sentido en los datos actuales, pero se muestra como ejemplo)
+                # Realizar la regresión lineal
                 X = data_persona[['Birth Year']].values
                 y = data_persona['IQ'].values
 
