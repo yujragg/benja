@@ -9,29 +9,18 @@ def process_data(file):
         # Leer el archivo Excel usando openpyxl
         df = pd.read_excel(file, engine='openpyxl')
         return df
-
     except Exception as e:
         st.error(f"Error: Ocurrió un error durante el proceso: {str(e)}")
     return None
 
-def generate_pie_chart(df, column, max_data):
+def generate_pie_chart(df, column):
     """Genera y muestra un gráfico de torta basado en los datos del DataFrame."""
     if column not in df.columns:
         st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
         return None
 
     # Manejo de valores no finitos para columnas categóricas
-    if df[column].dtype == object:
-        counts = df[column].dropna().value_counts()
-    else:
-        series = df[column].dropna()  # Eliminar NA
-        series = series[series != float('inf')]  # Eliminar inf
-        rounded_values = series.round().astype(int)
-        counts = rounded_values.value_counts()
-
-    # Limitar la cantidad de datos a graficar
-    if len(counts) > max_data:
-        counts = counts.head(max_data)
+    counts = df[column].dropna().value_counts()
 
     # Crear la gráfica de torta
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -46,24 +35,14 @@ def generate_pie_chart(df, column, max_data):
     plt.close()
     return buf
 
-def generate_bar_chart(df, column, max_data):
+def generate_bar_chart(df, column):
     """Genera y muestra un gráfico de barras basado en los datos del DataFrame."""
     if column not in df.columns:
         st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
         return None
 
     # Manejo de valores no finitos para columnas categóricas
-    if df[column].dtype == object:
-        counts = df[column].dropna().value_counts()
-    else:
-        series = df[column].dropna()  # Eliminar NA
-        series = series[series != float('inf')]  # Eliminar inf
-        rounded_values = series.round().astype(int)
-        counts = rounded_values.value_counts()
-
-    # Limitar la cantidad de datos a graficar
-    if len(counts) > max_data:
-        counts = counts.head(max_data)
+    counts = df[column].dropna().value_counts()
 
     # Crear la gráfica de barra
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -92,19 +71,22 @@ def main():
             st.write("Dataset Final:")
             st.dataframe(df)
 
-            chart_type = st.selectbox("¿Qué tipo de gráfico desea generar?", ["Torta", "Barras"], key="chart_type_select")
-            column = st.text_input("Ingrese el nombre de la columna para graficar", key="column_input")
-            max_data = st.number_input("Ingrese la cantidad máxima de datos a graficar", min_value=1, max_value=100, value=10, key="max_data_input")
+            # Supongamos que las siguientes columnas están disponibles y son relevantes para graficar.
+            columns_to_plot = ['Name', 'Country', 'Field of Expertise', 'IQ', 'Achievements', 'Birth Year', 'Gender', 'Notable Works', 'Awards', 'Education', 'Influence']
 
-            if st.button("Generar Gráfico", key="generate_chart_button"):
-                if chart_type == "Torta":
-                    chart_buf = generate_pie_chart(df, column, max_data)
+            for column in columns_to_plot:
+                if column in df.columns:
+                    st.subheader(f'Gráfico para la columna: {column}')
+                    
+                    if df[column].dtype == object:  # Si es una columna categórica
+                        chart_buf = generate_pie_chart(df, column)
+                    else:  # Si es una columna numérica
+                        chart_buf = generate_bar_chart(df, column)
+
                     if chart_buf:
-                        st.image(chart_buf, caption=f'Gráfica de Torta para {column}')
-                elif chart_type == "Barras":
-                    chart_buf = generate_bar_chart(df, column, max_data)
-                    if chart_buf:
-                        st.image(chart_buf, caption=f'Gráfica de Barras para {column}')
+                        st.image(chart_buf, caption=f'Gráfica de {column}')
+                else:
+                    st.warning(f"La columna '{column}' no se encuentra en el DataFrame.")
 
 if __name__ == "__main__":
     main()
