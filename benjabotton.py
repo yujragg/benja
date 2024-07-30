@@ -102,7 +102,7 @@ def main():
 
     if uploaded_file is not None:
         sheet_name = st.text_input("Ingrese el nombre de la hoja", key="sheet_name_input")
-        col_range = st.text_input("Ingrese el rango de columnas (ej. A:D)", key="col_range_input")
+        col_range = st.text_input("Ingrese el rango de columnas (ej. A:J)", key="col_range_input")
         start_row = st.text_input("Ingrese la fila inicial", key="start_row_input")
 
         if st.button("Procesar Datos", key="process_data_button"):
