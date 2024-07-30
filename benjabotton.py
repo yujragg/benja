@@ -11,7 +11,7 @@ def process_data(file_path, sheet_name, col_range, start_row):
         start_row = int(start_row) - 1  # Ajustar para índice basado en 0
 
         # Verificar las hojas disponibles en el archivo
-        xls = pd.ExcelFile(file_path)
+        xls = pd.ExcelFile(file_path, engine='openpyxl')
         sheet_names = xls.sheet_names
 
         if sheet_name not in sheet_names:
@@ -19,7 +19,7 @@ def process_data(file_path, sheet_name, col_range, start_row):
             return None
 
         # Leer el archivo Excel
-        df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row)
+        df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row, engine='openpyxl')
         return df
 
     except ValueError:
