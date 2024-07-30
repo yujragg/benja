@@ -1,129 +1,87 @@
-import os
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 from io import BytesIO
 
-def process_data(file_path, sheet_name, col_range, start_row):
-    """Procesa los datos del archivo Excel según los parámetros especificados."""
+# Configuración de Streamlit
+st.title('Análisis de Datos Académicos')
+
+# Cargar el archivo Excel usando el cargador de archivos de Streamlit
+archivo_excel = st.file_uploader("Sube tu archivo Excel", type="xlsx")
+
+if archivo_excel:
     try:
-        start_row = int(start_row) - 1  # Ajustar para índice basado en 0
+        # Cargar los datos
+        data = pd.read_excel(archivo_excel)
 
-        # Verificar las hojas disponibles en el archivo
-        xls = pd.ExcelFile(file_path, engine='openpyxl')
-        sheet_names = xls.sheet_names
+        # Mostrar las primeras filas del dataset
+        st.write(data.head())
 
-        if sheet_name not in sheet_names:
-            st.error(f"Error: La hoja '{sheet_name}' no se encuentra en el archivo.")
-            return None
+        # Verificar las columnas del DataFrame
+        if 'IQ' not in data.columns or 'Country' not in data.columns:
+            st.error("El archivo debe contener las columnas 'IQ' y 'Country'.")
+        else:
+            # Función para graficar y mostrar gráficos en Streamlit
+            def plot_and_show(data, x, y, title, xlabel, ylabel, plot_type='line', color='blue'):
+                plt.figure(figsize=(10, 6))
+                if plot_type == 'line':
+                    sns.lineplot(x=x, y=y, data=data, color=color)
+                elif plot_type == 'bar':
+                    sns.barplot(x=x, y=y, data=data, color=color)
+                plt.title(title)
+                plt.xlabel(xlabel)
+                plt.ylabel(ylabel)
+                plt.grid(True)
+                st.pyplot(plt.gcf())
+                plt.close()
 
-        # Leer el archivo Excel usando openpyxl
-        df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row, engine='openpyxl')
-        return df
+            # Visualización de datos generales
+            st.subheader('Distribución del IQ por País')
+            plot_and_show(data, 'Country', 'IQ', 'Distribución del IQ por País', 'País', 'IQ', 'bar', 'skyblue')
 
-    except ValueError:
-        st.error("Error: El valor de la fila inicial debe ser un número entero.")
+            st.subheader('IQ de las Personalidades Académicas')
+            plot_and_show(data, 'Name', 'IQ', 'IQ de las Personalidades Académicas', 'Nombre', 'IQ', 'bar', 'lightgreen')
+
+            # Seleccionar una persona para el análisis de regresión lineal
+            nombres = data['Name'].unique()
+            nombre_seleccionado = st.selectbox("Selecciona una persona", nombres)
+
+            # Filtrar datos para la persona seleccionada
+            data_persona = data[data['Name'] == nombre_seleccionado]
+
+            if not data_persona.empty:
+                # Realizar la regresión lineal (en este caso, no tiene sentido en los datos actuales, pero se muestra como ejemplo)
+                X = data_persona[['Birth Year']].values
+                y = data_persona['IQ'].values
+
+                # Ajustar modelo de regresión lineal
+                model = LinearRegression()
+                model.fit(X, y)
+                predictions = model.predict(X)
+                r2 = r2_score(y, predictions)
+
+                # Graficar la regresión lineal
+                plt.figure(figsize=(10, 6))
+                sns.scatterplot(x='Birth Year', y='IQ', data=data_persona, color='blue')
+                sns.lineplot(x=data_persona['Birth Year'], y=predictions, color='red')
+                plt.title(f'Regresión Lineal: IQ de {nombre_seleccionado}')
+                plt.xlabel('Año de Nacimiento')
+                plt.ylabel('IQ')
+                plt.grid(True)
+                st.pyplot(plt.gcf())
+                plt.close()
+
+                # Mostrar el valor de R²
+                st.write(f'Precisión de la regresión lineal (R²) para {nombre_seleccionado}: {r2:.2f}')
+            else:
+                st.warning("No hay suficientes datos para realizar la regresión lineal.")
+
+    except pd.errors.EmptyDataError:
+        st.error("El archivo está vacío. Por favor, verifique el contenido del archivo.")
     except Exception as e:
-        st.error(f"Error: Ocurrió un error durante el proceso: {str(e)}")
-    return None
-
-def generate_pie_chart(df, column, max_data):
-    """Genera y muestra un gráfico de torta basado en los datos del DataFrame."""
-    if column not in df.columns:
-        st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
-        return None
-
-    # Manejo de valores no finitos para columnas categóricas
-    if df[column].dtype == object:
-        counts = df[column].dropna().value_counts()
-    else:
-        series = df[column].dropna()  # Eliminar NA
-        series = series[series != float('inf')]  # Eliminar inf
-        rounded_values = series.round().astype(int)
-        counts = rounded_values.value_counts()
-
-    # Limitar la cantidad de datos a graficar
-    if len(counts) > max_data:
-        counts = counts.head(max_data)
-
-    # Crear la gráfica de torta
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.pie(counts, labels=counts.index, autopct='%1.1f%%', startangle=140)
-    ax.set_title(f'Distribución de {column}')
-    plt.axis('equal')  # Igualar el aspecto para que sea un círculo
-
-    # Guardar la gráfica en un buffer y retornar la imagen
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    plt.close()
-    return buf
-
-def generate_bar_chart(df, column, max_data):
-    """Genera y muestra un gráfico de barras basado en los datos del DataFrame."""
-    if column not in df.columns:
-        st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
-        return None
-
-    # Manejo de valores no finitos para columnas categóricas
-    if df[column].dtype == object:
-        counts = df[column].dropna().value_counts()
-    else:
-        series = df[column].dropna()  # Eliminar NA
-        series = series[series != float('inf')]  # Eliminar inf
-        rounded_values = series.round().astype(int)
-        counts = rounded_values.value_counts()
-
-    # Limitar la cantidad de datos a graficar
-    if len(counts) > max_data:
-        counts = counts.head(max_data)
-
-    # Crear la gráfica de barra
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(counts.index, counts.values)
-    ax.set_title(f'Frecuencia de Valores en {column}')
-    ax.set_xlabel('Valores')
-    ax.set_ylabel('Frecuencia')
-    ax.grid(True, axis='y')
-
-    # Guardar la gráfica en un buffer y retornar la imagen
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    plt.close()
-    return buf
-
-def main():
-    """Función principal para ejecutar el proceso ETL usando Streamlit."""
-    st.title("Procesador de Datos Excel")
-
-    uploaded_file = st.file_uploader("Cargar archivo Excel", type=["xlsx"], key="excel_uploader")
-
-    if uploaded_file is not None:
-        sheet_name = st.text_input("Ingrese el nombre de la hoja", key="sheet_name_input")
-        col_range = st.text_input("Ingrese el rango de columnas (ej. A:J)", key="col_range_input")
-        start_row = st.text_input("Ingrese la fila inicial", key="start_row_input")
-
-        if st.button("Procesar Datos", key="process_data_button"):
-            df = process_data(uploaded_file, sheet_name, col_range, start_row)
-            if df is not None:
-                st.write("Dataset Final:")
-                st.dataframe(df)
-
-                chart_type = st.selectbox("¿Qué tipo de gráfico desea generar?", ["Torta", "Barras"], key="chart_type_select")
-                column = st.text_input("Ingrese el nombre de la columna para graficar", key="column_input")
-                max_data = st.number_input("Ingrese la cantidad máxima de datos a graficar", min_value=1, max_value=100, value=10, key="max_data_input")
-
-                if st.button("Generar Gráfico", key="generate_chart_button"):
-                    if chart_type == "Torta":
-                        chart_buf = generate_pie_chart(df, column, max_data)
-                        if chart_buf:
-                            st.image(chart_buf, caption=f'Gráfica de Torta para {column}')
-                    elif chart_type == "Barras":
-                        chart_buf = generate_bar_chart(df, column, max_data)
-                        if chart_buf:
-                            st.image(chart_buf, caption=f'Gráfica de Barras para {column}')
-
-if __name__ == "__main__":
-    main()
+        st.error(f"Ocurrió un error al procesar el archivo: {e}")
+else:
+    st.info("Por favor, sube un archivo Excel para comenzar.")
