@@ -1,10 +1,15 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
-from io import BytesIO
+
+# Intentar importar seaborn y manejar el error si ocurre
+try:
+    import seaborn as sns
+except ImportError:
+    st.error("La librería `seaborn` no está instalada. Por favor, instálala con `pip install seaborn`.")
+    sns = None
 
 # Configuración de Streamlit
 st.title('Análisis de Datos Académicos')
@@ -21,16 +26,22 @@ if archivo_excel:
         st.write(data.head())
 
         # Verificar las columnas del DataFrame
-        if 'IQ' not in data.columns or 'Country' not in data.columns:
-            st.error("El archivo debe contener las columnas 'IQ' y 'Country'.")
+        if 'IQ' not in data.columns or 'Country' not in data.columns or 'Name' not in data.columns or 'Birth Year' not in data.columns:
+            st.error("El archivo debe contener las columnas 'IQ', 'Country', 'Name', y 'Birth Year'.")
         else:
             # Función para graficar y mostrar gráficos en Streamlit
             def plot_and_show(data, x, y, title, xlabel, ylabel, plot_type='line', color='blue'):
                 plt.figure(figsize=(10, 6))
-                if plot_type == 'line':
-                    sns.lineplot(x=x, y=y, data=data, color=color)
-                elif plot_type == 'bar':
-                    sns.barplot(x=x, y=y, data=data, color=color)
+                if sns:
+                    if plot_type == 'line':
+                        sns.lineplot(x=x, y=y, data=data, color=color)
+                    elif plot_type == 'bar':
+                        sns.barplot(x=x, y=y, data=data, color=color)
+                else:
+                    if plot_type == 'line':
+                        plt.plot(data[x], data[y], color=color)
+                    elif plot_type == 'bar':
+                        plt.bar(data[x], data[y], color=color)
                 plt.title(title)
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabel)
@@ -65,8 +76,12 @@ if archivo_excel:
 
                 # Graficar la regresión lineal
                 plt.figure(figsize=(10, 6))
-                sns.scatterplot(x='Birth Year', y='IQ', data=data_persona, color='blue')
-                sns.lineplot(x=data_persona['Birth Year'], y=predictions, color='red')
+                if sns:
+                    sns.scatterplot(x='Birth Year', y='IQ', data=data_persona, color='blue')
+                    sns.lineplot(x=data_persona['Birth Year'], y=predictions, color='red')
+                else:
+                    plt.scatter(data_persona['Birth Year'], data_persona['IQ'], color='blue')
+                    plt.plot(data_persona['Birth Year'], predictions, color='red')
                 plt.title(f'Regresión Lineal: IQ de {nombre_seleccionado}')
                 plt.xlabel('Año de Nacimiento')
                 plt.ylabel('IQ')
