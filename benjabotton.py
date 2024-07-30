@@ -18,7 +18,7 @@ def process_data(file_path, sheet_name, col_range, start_row):
             st.error(f"Error: La hoja '{sheet_name}' no se encuentra en el archivo.")
             return None
 
-        # Leer el archivo Excel
+        # Leer el archivo Excel usando openpyxl
         df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row, engine='openpyxl')
         return df
 
