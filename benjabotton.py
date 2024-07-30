@@ -79,7 +79,7 @@ def generate_bar_chart(df, column, max_data):
     if len(counts) > max_data:
         counts = counts.head(max_data)
 
-    # Crear la gráfica de barras
+    # Crear la gráfica de barra
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.bar(counts.index, counts.values)
     ax.set_title(f'Frecuencia de Valores en {column}')
