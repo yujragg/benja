@@ -1,11 +1,26 @@
 import os
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
 from io import BytesIO
 import traceback
-import openpyxl
+
+# Imprimir información de diagnóstico
+st.write(f"Python version: {sys.version}")
+st.write(f"Pandas version: {pd.__version__}")
+st.write(f"Numpy version: {np.__version__}")
+st.write(f"Matplotlib version: {plt.__version__}")
+
+# Intentar importar openpyxl
+try:
+    import openpyxl
+    st.write(f"Openpyxl version: {openpyxl.__version__}")
+except ImportError as e:
+    st.error(f"Error al importar openpyxl: {e}")
+    st.error("Por favor, asegúrate de que openpyxl está instalado correctamente.")
+    sys.exit(1)
 
 def process_data(file_path, sheet_name, col_range, start_row):
     """Procesa los datos del archivo Excel según los parámetros especificados."""
@@ -24,8 +39,6 @@ def process_data(file_path, sheet_name, col_range, start_row):
         df = pd.read_excel(file_path, sheet_name=sheet_name, usecols=col_range, skiprows=start_row)
         return df
 
-    except ValueError as ve:
-        st.error(f"Error de valor: {str(ve)}")
     except Exception as e:
         st.error(f"Error detallado: {str(e)}")
         st.error(f"Traceback: {traceback.format_exc()}")
@@ -38,36 +51,21 @@ def generate_pie_chart(df, column, max_data):
             st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
             return None
 
-        # Manejo de valores no finitos para columnas categóricas
-        if df[column].dtype == object:
-            counts = df[column].dropna().value_counts()
+        series = df[column].dropna()
+        if series.dtype == object:
+            counts = series.value_counts().head(max_data)
         else:
-            series = df[column].dropna()  # Eliminar NA
-            series = series[series != float('inf')]  # Eliminar inf
-            series = series[series != float('-inf')]  # Eliminar -inf
-            if series.dtype in ['int64', 'float64']:
-                rounded_values = series.round().astype(int)
-                counts = rounded_values.value_counts()
-            else:
-                st.error(f"Error: El tipo de datos de la columna '{column}' no es compatible para generar un gráfico de torta.")
-                return None
+            counts = pd.cut(series, bins=min(max_data, 10)).value_counts().sort_index()
 
-        # Limitar la cantidad de datos a graficar
-        if len(counts) > max_data:
-            counts = counts.head(max_data)
-
-        # Crear la gráfica de torta
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.pie(counts, labels=counts.index.astype(str), autopct='%1.1f%%', startangle=140)
         ax.set_title(f'Distribución de {column}')
-        plt.axis('equal')  # Igualar el aspecto para que sea un círculo
+        plt.axis('equal')
 
-        # Guardar la gráfica en un buffer y retornar la imagen
         buf = BytesIO()
-        plt.tight_layout()
         plt.savefig(buf, format="png")
         buf.seek(0)
-        plt.close()
+        plt.close(fig)
         return buf
 
     except Exception as e:
@@ -82,39 +80,24 @@ def generate_bar_chart(df, column, max_data):
             st.error(f"Error: La columna '{column}' no se encuentra en el DataFrame.")
             return None
 
-        # Manejo de valores no finitos para columnas categóricas
-        if df[column].dtype == object:
-            counts = df[column].dropna().value_counts()
+        series = df[column].dropna()
+        if series.dtype == object:
+            counts = series.value_counts().head(max_data)
         else:
-            series = df[column].dropna()  # Eliminar NA
-            series = series[series != float('inf')]  # Eliminar inf
-            series = series[series != float('-inf')]  # Eliminar -inf
-            if series.dtype in ['int64', 'float64']:
-                rounded_values = series.round().astype(int)
-                counts = rounded_values.value_counts()
-            else:
-                st.error(f"Error: El tipo de datos de la columna '{column}' no es compatible para generar un gráfico de barras.")
-                return None
+            counts = pd.cut(series, bins=min(max_data, 10)).value_counts().sort_index()
 
-        # Limitar la cantidad de datos a graficar
-        if len(counts) > max_data:
-            counts = counts.head(max_data)
-
-        # Crear la gráfica de barras
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.bar(counts.index.astype(str), counts.values)
         ax.set_title(f'Frecuencia de Valores en {column}')
         ax.set_xlabel('Valores')
         ax.set_ylabel('Frecuencia')
         ax.tick_params(axis='x', rotation=45)
-        ax.grid(True, axis='y')
-
-        # Guardar la gráfica en un buffer y retornar la imagen
-        buf = BytesIO()
         plt.tight_layout()
+
+        buf = BytesIO()
         plt.savefig(buf, format="png")
         buf.seek(0)
-        plt.close()
+        plt.close(fig)
         return buf
 
     except Exception as e:
@@ -125,10 +108,6 @@ def generate_bar_chart(df, column, max_data):
 def main():
     """Función principal para ejecutar el proceso ETL usando Streamlit."""
     st.title("Procesador de Datos Excel")
-
-    # Mostrar versiones de las librerías
-    st.write(f"Pandas version: {pd.__version__}")
-    st.write(f"Openpyxl version: {openpyxl.__version__}")
 
     uploaded_file = st.file_uploader("Cargar archivo Excel", type=["xlsx", "xls", "ods"], key="excel_uploader")
 
@@ -148,32 +127,26 @@ def main():
                 max_data = st.number_input("Ingrese la cantidad máxima de datos a graficar", min_value=1, max_value=100, value=10, key="max_data_input")
 
                 if st.button("Generar Gráfico", key="generate_chart_button"):
-                    try:
-                        if column not in df.columns:
-                            st.error(f"Error: La columna '{column}' no existe en el DataFrame.")
-                        elif df[column].empty:
-                            st.error(f"Error: La columna '{column}' está vacía.")
+                    if column not in df.columns:
+                        st.error(f"Error: La columna '{column}' no existe en el DataFrame.")
+                    elif df[column].empty:
+                        st.error(f"Error: La columna '{column}' está vacía.")
+                    else:
+                        chart_buf = None
+                        if chart_type == "Torta":
+                            chart_buf = generate_pie_chart(df, column, max_data)
+                        elif chart_type == "Barras":
+                            chart_buf = generate_bar_chart(df, column, max_data)
+                        
+                        if chart_buf:
+                            st.image(chart_buf, caption=f'Gráfica de {chart_type} para {column}')
                         else:
-                            if chart_type == "Torta":
-                                chart_buf = generate_pie_chart(df, column, max_data)
-                                if chart_buf:
-                                    st.image(chart_buf, caption=f'Gráfica de Torta para {column}')
-                                else:
-                                    st.error(f"No se pudo generar la gráfica de torta para la columna '{column}'.")
-                            elif chart_type == "Barras":
-                                chart_buf = generate_bar_chart(df, column, max_data)
-                                if chart_buf:
-                                    st.image(chart_buf, caption=f'Gráfica de Barras para {column}')
-                                else:
-                                    st.error(f"No se pudo generar la gráfica de barras para la columna '{column}'.")
-                            
-                            st.write(f"Información de la columna '{column}':")
-                            st.write(f"Tipo de datos: {df[column].dtype}")
-                            st.write(f"Valores únicos: {df[column].nunique()}")
-                            st.write(f"Muestra de datos: {df[column].head().tolist()}")
-                    except Exception as e:
-                        st.error(f"Error al generar el gráfico: {str(e)}")
-                        st.error(f"Traceback: {traceback.format_exc()}")
+                            st.error(f"No se pudo generar la gráfica de {chart_type} para la columna '{column}'.")
+                        
+                        st.write(f"Información de la columna '{column}':")
+                        st.write(f"Tipo de datos: {df[column].dtype}")
+                        st.write(f"Valores únicos: {df[column].nunique()}")
+                        st.write(f"Muestra de datos: {df[column].head().tolist()}")
 
 if __name__ == "__main__":
     main()
